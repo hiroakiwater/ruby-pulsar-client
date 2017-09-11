@@ -57,8 +57,8 @@ class PulsarClient
 			)
 
 		base_command.connect = Pulsar::Proto::CommandConnect.new
-		base_command.connect.client_version = "ruby-client-test-0.0.1"
-	
+		base_command.connect.client_version 	= "ruby-client-0.0.2"
+		base_command.connect.protocol_version 	= 6
 	
 		byte_cmd = base_command.serialize_to_string()
 		total_length = byte_cmd.length + 4
@@ -82,7 +82,6 @@ class PulsarClient
 		else
 			return false
 		end
-
 	end
 
 	def command_producer(topic)
@@ -166,7 +165,6 @@ class PulsarClient
 		else
 			return false	
 		end
-
 	end
 
 	def command_lookup(topic)
@@ -202,7 +200,6 @@ class PulsarClient
 			print("type:" + recv_cmd.type.to_s + "\n")
 			return false
 		end
-
 	end
 
 	def command_subscribe(topic, subscription, sub_type)
@@ -251,7 +248,6 @@ class PulsarClient
 			print("type:" + recv_cmd.type.to_s + "\n")
 			return false
 		end
-
 	end
 
 	def command_flow()
@@ -288,9 +284,21 @@ class PulsarClient
 			consumer_id = recv_cmd.message.consumer_id
 			ledgerId = recv_cmd.message.message_id.ledgerId
 			entryId = recv_cmd.message.message_id.entryId
+			
+			recv_meta_length = 0
+			recv_meta_byte = nil
 
-			recv_meta_length = @sock.read(4).unpack('N')[0]
-			recv_meta_byte = @sock.read(recv_meta_length)
+			recv_magic = @sock.read(2)
+			if recv_magic == [0x0e, 0x01].pack('C*') then
+				recv_crc = @sock.read(4)
+			
+				recv_meta_length = @sock.read(4).unpack('N')[0]
+				recv_meta_byte = @sock.read(recv_meta_length)
+			else
+				recv_remain = @sock.read(2)
+				recv_meta_length = (recv_magic + recv_remain).unpack('N')[0]
+				recv_meta_byte = @sock.read(recv_meta_length)
+			end
 
 			payload_length = recv_length - (4 + recv_cmd_length + 4 + recv_meta_length)
 			
